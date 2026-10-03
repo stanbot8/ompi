@@ -1,15 +1,15 @@
 {
   "definition_blob_sha1": {
     ".github/workflows/alpha-bridge-ci-verify.yml": "211d78b275bbb87055d46d18edfc9b309afb7fd3",
-    ".github/workflows/close-stale-issues.yaml": "87739b717626e7db15ab461d02a85f2fbb461e43",
-    ".github/workflows/codeql.yml": "6f40e68c4144fb364c8c4b6284b8ecb40f0c0374"
+    ".github/workflows/close-stale-issues.yaml": "318421f0127fcaa79ed310ea326fbb7c6df841ad",
+    ".github/workflows/codeql.yml": "7ead4a9a6dafd9b931ff3de67472811e48b96288"
   },
   "definition_sha256": {
     ".github/workflows/alpha-bridge-ci-verify.yml": "4cac5461d20019fd71bd15ab6e775a433bcfc570d3cc96f9132a4bf68d15c04e",
-    ".github/workflows/close-stale-issues.yaml": "3058aed6998220e7cee1b3b586230cc8c803cb53e24cce93c34a071ecb841bb9",
-    ".github/workflows/codeql.yml": "f20bc73f2a817116983a959008de8bc5bb44b66f4adb144775bdae843fc1cd79"
+    ".github/workflows/close-stale-issues.yaml": "17da9e4b65dad2ea5389297647413cba9dad7f3d09eb721a970b9231650bf713",
+    ".github/workflows/codeql.yml": "b9911e6937bee141e52f11f926bc35878cd812c987e905c4be2fca18654c300a"
   },
-  "generator_sha256": "f5fbad0230ba7fa85305a317f424ab1f31bb96ff28ce023a46664fdaad8051c9",
+  "generator_sha256": "3b26cda454cba3b637212cdea3d130c69e2223d93535daef4f59e8f73b2e6cc3",
   "schema": "alpha-bridge/fork-ci",
   "source_branch": "main",
   "source_commit": "9bf19af46b93024cbe662aa63c5d9d53cb259672",

@@ -30,10 +30,8 @@
 
 name: Close stale issues
 on:
-  schedule:
-    # Run it a few times a day so as not to necessarily mark stale /
-    # close a bunch of issues at once.
-  - cron: 0 1,5,9,13,17,21 * * *
+  schedule: -
+    cron: 0 1,5,9,13,17,21 * * *
 
 jobs:
   stale:
@@ -41,9 +39,8 @@ jobs:
     permissions:
       contents: read
       issues: write
-    steps:
-      # https://github.com/marketplace/actions/close-stale-issues
-    - uses: actions/stale@v9
+    steps: -
+      uses: actions/stale@v9
       with:
           # If there are no replies for 14 days, mark the issue as
           # "stale" (and emit a warning).
@@ -66,6 +63,13 @@ jobs:
           Per the above comment, it has been a month with no reply on this issue.  It looks like this issue has been abandoned.
 
           I'm going to close this issue.  If I'm wrong and this issue is *not* abandoned, please feel free to re-open it.  Thank you!
+    env:
+      ALPHA_BRIDGE_SOURCE_SHA: ${{ github.event_name == 'schedule' && 
+        '9bf19af46b93024cbe662aa63c5d9d53cb259672' || github.sha }}
+      ALPHA_BRIDGE_SOURCE_REF: ${{ github.event_name == 'schedule' && 
+        'refs/heads/main' || github.ref }}
+      ALPHA_BRIDGE_SOURCE_REF_NAME: ${{ github.event_name == 'schedule' && 
+        'main' || github.ref_name }}
     needs:
     - alpha_bridge_inputs
     if: ${{ (success()) && needs.alpha_bridge_inputs.outputs.changed == 'true' 
@@ -91,7 +95,7 @@ jobs:
         AB_RUN_ID: ${{ github.run_id }}
         AB_HEAD_SHA: 9bf19af46b93024cbe662aa63c5d9d53cb259672
         AB_WORKFLOW_DIGEST: 
-          315e3122c576e300bdc6e5e2f3c680a452e262581a391fbfa64bc55a8f2e339b
+          e83bfe061486603346a89795b9f1dec853700519f77655cc5de73b3619660a99
         AB_EVENT: ${{ github.event_name }}
         AB_SCHEDULE: ${{ github.event.schedule || '' }}
         AB_VARIABLES: ${{ toJSON(vars) }}

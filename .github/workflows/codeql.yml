@@ -71,16 +71,17 @@ on:
   push:
     # Defined once here (&scan_branches) and reused by pull_request
     # below via a YAML alias, so the two trigger lists cannot drift.
-    branches: &scan_branches
+    branches:
     - main
-    - v[5-9].*.x           # Matches v5.0.x through v9.9.x
-    - v[1-9][0-9]+.*.x     # Matches v10.0.x and higher (double digits+)
+    - v[5-9].*.x
+    - v[1-9][0-9]+.*.x
   pull_request:
-    branches: *scan_branches
-  schedule:
-    # Monday morning (UTC).  The off-the-hour minute avoids GitHub's
-    # top-of-the-hour scheduling congestion.
-  - cron: 32 5 * * 1
+    branches:
+    - main
+    - v[5-9].*.x
+    - v[1-9][0-9]+.*.x
+  schedule: -
+    cron: 32 5 * * 1
   workflow_dispatch:
 
 permissions:
@@ -98,7 +99,8 @@ permissions:
 # separate groups, and cancellation is enabled only for pull_request
 # runs -- never the weekly scheduled scan or pushes to a branch.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ (github.event_name 
+    == 'schedule' && 'refs/heads/main' || github.ref) }}
   cancel-in-progress: ${{ github.event_name != 'schedule' && (github.event_name 
     == 'pull_request') }}
 
@@ -111,7 +113,8 @@ jobs:
       ${{ (github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
       && github.repository == 'open-mpi/ompi') && needs.alpha_bridge_inputs.outputs.changed
       == 'true' }}
-    name: Analyze ${{ matrix.language }} (${{ github.ref_name }})
+    name: Analyze ${{ matrix.language }} (${{ (github.event_name == 'schedule' 
+      && 'main' || github.ref_name) }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -130,6 +133,8 @@ jobs:
         submodules: recursive
         persist-credentials: false
 
+        ref: ${{ github.event_name == 'schedule' && 
+          '9bf19af46b93024cbe662aa63c5d9d53cb259672' || github.sha }}
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v4
       with:
@@ -208,6 +213,13 @@ jobs:
   # matrix so the scheduled path can be tested without waiting for the
   # next cron event.
   # -------------------------------------------------------------------
+    env:
+      ALPHA_BRIDGE_SOURCE_SHA: ${{ github.event_name == 'schedule' && 
+        '9bf19af46b93024cbe662aa63c5d9d53cb259672' || github.sha }}
+      ALPHA_BRIDGE_SOURCE_REF: ${{ github.event_name == 'schedule' && 
+        'refs/heads/main' || github.ref }}
+      ALPHA_BRIDGE_SOURCE_REF_NAME: ${{ github.event_name == 'schedule' && 
+        'main' || github.ref_name }}
     needs:
     - alpha_bridge_inputs
   analyze-scheduled:
@@ -259,8 +271,8 @@ jobs:
         languages: ${{ matrix.language }}
         build-mode: ${{ matrix.build-mode }}
         config-file: >-
-          ${{ github.repository }}/.github/codeql/codeql-config.yml@${{ github.event.repository.default_branch
-          }}
+          ${{ github.repository }}/.github/codeql/codeql-config.yml@${{ (github.event_name
+          == 'schedule' && 'main' || github.event.repository.default_branch) }}
 
     - name: Run manual build steps
       if: matrix.build-mode == 'manual'
@@ -354,11 +366,19 @@ jobs:
   # (the schedule fires only from the default branch) and its copy can
   # lag main's, so running there would block CI for drift it can't fix.
   # -------------------------------------------------------------------
+    env:
+      ALPHA_BRIDGE_SOURCE_SHA: ${{ github.event_name == 'schedule' && 
+        '9bf19af46b93024cbe662aa63c5d9d53cb259672' || github.sha }}
+      ALPHA_BRIDGE_SOURCE_REF: ${{ github.event_name == 'schedule' && 
+        'refs/heads/main' || github.ref }}
+      ALPHA_BRIDGE_SOURCE_REF_NAME: ${{ github.event_name == 'schedule' && 
+        'main' || github.ref_name }}
     needs:
     - alpha_bridge_inputs
   check-scheduled-coverage:
     if: >-
-      ${{ (github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+      ${{ (github.event_name == 'push' && (github.event_name == 'schedule' && 'main'
+      || github.ref_name) == (github.event_name == 'schedule' && 'main' || github.event.repository.default_branch)
       && github.repository == 'open-mpi/ompi') && needs.alpha_bridge_inputs.outputs.changed
       == 'true' }}
     runs-on: ubuntu-latest
@@ -370,6 +390,8 @@ jobs:
       with:
         persist-credentials: false
 
+        ref: ${{ github.event_name == 'schedule' && 
+          '9bf19af46b93024cbe662aa63c5d9d53cb259672' || github.sha }}
     - name: Verify periodic-scan branch coverage
       shell: bash
       env:
@@ -422,6 +444,13 @@ jobs:
             sys.exit(1)
         print("OK: every push/PR-scanned branch is covered by the weekly scan.")
         PY
+    env:
+      ALPHA_BRIDGE_SOURCE_SHA: ${{ github.event_name == 'schedule' && 
+        '9bf19af46b93024cbe662aa63c5d9d53cb259672' || github.sha }}
+      ALPHA_BRIDGE_SOURCE_REF: ${{ github.event_name == 'schedule' && 
+        'refs/heads/main' || github.ref }}
+      ALPHA_BRIDGE_SOURCE_REF_NAME: ${{ github.event_name == 'schedule' && 
+        'main' || github.ref_name }}
     needs:
     - alpha_bridge_inputs
   alpha_bridge_inputs:
@@ -445,7 +474,7 @@ jobs:
         AB_RUN_ID: ${{ github.run_id }}
         AB_HEAD_SHA: 9bf19af46b93024cbe662aa63c5d9d53cb259672
         AB_WORKFLOW_DIGEST: 
-          d8fa9ba71294d880ae601620aa8130427eb31b080a0f918f161bff468a41cf9d
+          9979b2af0896b4b879fc9d7dbcb708379c17fc08a2f36f79913fd2934254d795
         AB_EVENT: ${{ github.event_name }}
         AB_SCHEDULE: ${{ github.event.schedule || '' }}
         AB_VARIABLES: ${{ toJSON(vars) }}
