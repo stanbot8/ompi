@@ -1,0 +1,23 @@
+{
+  "definition_blob_sha1": {
+    ".github/workflows/alpha-bridge-ci-verify.yml": "0588ba302e7a97a9721ae7494f6b9aca053476b6",
+    ".github/workflows/close-stale-issues.yaml": "8e7eea132d287c7ae495553a4962120b29393c29",
+    ".github/workflows/codeql.yml": "39edea50f968572633d5e59569462dcb3d25d08d"
+  },
+  "definition_sha256": {
+    ".github/workflows/alpha-bridge-ci-verify.yml": "d3dacd19a9c94cd86ca5ba24b075c35f3ff224d155ca5891f3b4325ece933dac",
+    ".github/workflows/close-stale-issues.yaml": "ef395ed9e32745b70e91bb4ca15c50e1c87d7ed07b7b9ecc3868bcaa6cc2c585",
+    ".github/workflows/codeql.yml": "06946cd6240aa1bc925ce3d6623494d85f731fa96ed65ac5375d86a603f41584"
+  },
+  "generator_sha256": "f238e5d52b0ec5c07f088af203f93698fbdea22a995856dc18c50f5365431353",
+  "schema": "alpha-bridge/fork-ci",
+  "source_branch": "main",
+  "source_commit": "9bf19af46b93024cbe662aa63c5d9d53cb259672",
+  "source_repository": "open-mpi/ompi",
+  "version": 1,
+  "workflows": [
+    ".github/workflows/alpha-bridge-ci-verify.yml",
+    ".github/workflows/close-stale-issues.yaml",
+    ".github/workflows/codeql.yml"
+  ]
+}

@@ -65,22 +65,22 @@
 # globs below (for PR/merge scans) and should be added to the scheduled
 # job's branch list on main (for the weekly scans).
 
-name: "CodeQL Advanced"
+name: CodeQL Advanced
 
 on:
   push:
     # Defined once here (&scan_branches) and reused by pull_request
     # below via a YAML alias, so the two trigger lists cannot drift.
     branches: &scan_branches
-      - main
-      - 'v[5-9].*.x'       # Matches v5.0.x through v9.9.x
-      - 'v[1-9][0-9]+.*.x' # Matches v10.0.x and higher (double digits+)
+    - main
+    - v[5-9].*.x           # Matches v5.0.x through v9.9.x
+    - v[1-9][0-9]+.*.x     # Matches v10.0.x and higher (double digits+)
   pull_request:
     branches: *scan_branches
   schedule:
     # Monday morning (UTC).  The off-the-hour minute avoids GitHub's
     # top-of-the-hour scheduling congestion.
-    - cron: '32 5 * * 1'
+  - cron: 32 5 * * 1
   workflow_dispatch:
 
 permissions:
@@ -99,7 +99,8 @@ permissions:
 # runs -- never the weekly scheduled scan or pushes to a branch.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' && (github.event_name 
+    == 'pull_request') }}
 
 jobs:
   # -------------------------------------------------------------------
@@ -107,49 +108,49 @@ jobs:
   # -------------------------------------------------------------------
   analyze:
     if: >-
-      github.event_name != 'schedule' &&
-      github.event_name != 'workflow_dispatch' &&
-      github.repository == 'open-mpi/ompi'
+      ${{ (github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+      && github.repository == 'open-mpi/ompi') && needs.alpha_bridge_inputs.outputs.changed
+      == 'true' }}
     name: Analyze ${{ matrix.language }} (${{ github.ref_name }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - language: actions
-            build-mode: none
-          - language: c-cpp
-            build-mode: manual
-          - language: python
-            build-mode: none
+        - language: actions
+          build-mode: none
+        - language: c-cpp
+          build-mode: manual
+        - language: python
+          build-mode: none
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          submodules: recursive
-          persist-credentials: false
+    - name: Checkout repository
+      uses: actions/checkout@v6
+      with:
+        submodules: recursive
+        persist-credentials: false
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
-          config-file: ./.github/codeql/codeql-config.yml
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v4
+      with:
+        languages: ${{ matrix.language }}
+        build-mode: ${{ matrix.build-mode }}
+        config-file: ./.github/codeql/codeql-config.yml
 
-      - name: Run manual build steps
-        if: matrix.build-mode == 'manual'
-        shell: bash
-        run: |
-          export AUTOMAKE_JOBS=$(nproc)
-          ./autogen.pl
-          ./configure
-          make -j $(nproc)
+    - name: Run manual build steps
+      if: matrix.build-mode == 'manual'
+      shell: bash
+      run: |
+        export AUTOMAKE_JOBS=$(nproc)
+        ./autogen.pl
+        ./configure
+        make -j $(nproc)
 
-      - name: Perform CodeQL Analysis
-        if: matrix.language != 'c-cpp'
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:${{ matrix.language }}"
+    - name: Perform CodeQL Analysis
+      if: matrix.language != 'c-cpp'
+      uses: github/codeql-action/analyze@v4
+      with:
+        category: /language:${{ matrix.language }}
 
       # CodeQL's paths-ignore setting does not filter C/C++ code that is
       # compiled by a manual build.  Open MPI's normal build compiles
@@ -159,46 +160,46 @@ jobs:
       # locations are under 3rd-party/ or the test directories (mirroring
       # the config sidecar's paths-ignore), and then upload the filtered
       # SARIF.
-      - name: Perform CodeQL Analysis
-        if: matrix.language == 'c-cpp'
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:${{ matrix.language }}"
-          output: c-cpp-sarif-results
-          upload: failure-only
+    - name: Perform CodeQL Analysis
+      if: matrix.language == 'c-cpp'
+      uses: github/codeql-action/analyze@v4
+      with:
+        category: /language:${{ matrix.language }}
+        output: c-cpp-sarif-results
+        upload: failure-only
 
-      - name: Locate C/C++ SARIF
-        if: matrix.language == 'c-cpp'
-        id: cpp_sarif
-        shell: bash
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          sarif_files=(c-cpp-sarif-results/*.sarif)
-          if test ${#sarif_files[@]} -ne 1; then
-              echo "::error::Expected one C/C++ SARIF file, found ${#sarif_files[@]}"
-              exit 1
-          fi
-          echo "file=${sarif_files[0]}" >> "$GITHUB_OUTPUT"
+    - name: Locate C/C++ SARIF
+      if: matrix.language == 'c-cpp'
+      id: cpp_sarif
+      shell: bash
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        sarif_files=(c-cpp-sarif-results/*.sarif)
+        if test ${#sarif_files[@]} -ne 1; then
+            echo "::error::Expected one C/C++ SARIF file, found ${#sarif_files[@]}"
+            exit 1
+        fi
+        echo "file=${sarif_files[0]}" >> "$GITHUB_OUTPUT"
 
-      - name: Filter third-party C/C++ SARIF results
-        if: matrix.language == 'c-cpp'
-        uses: advanced-security/filter-sarif@v1
-        with:
-          patterns: |
-            -3rd-party/**
-            -**/3rd-party/**
-            -test/**
-            -**/test/**
-          input: ${{ steps.cpp_sarif.outputs.file }}
-          output: ${{ steps.cpp_sarif.outputs.file }}
+    - name: Filter third-party C/C++ SARIF results
+      if: matrix.language == 'c-cpp'
+      uses: advanced-security/filter-sarif@v1
+      with:
+        patterns: |
+          -3rd-party/**
+          -**/3rd-party/**
+          -test/**
+          -**/test/**
+        input: ${{ steps.cpp_sarif.outputs.file }}
+        output: ${{ steps.cpp_sarif.outputs.file }}
 
-      - name: Upload filtered C/C++ SARIF
-        if: matrix.language == 'c-cpp'
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: ${{ steps.cpp_sarif.outputs.file }}
-          category: "/language:${{ matrix.language }}"
+    - name: Upload filtered C/C++ SARIF
+      if: matrix.language == 'c-cpp'
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: ${{ steps.cpp_sarif.outputs.file }}
+        category: /language:${{ matrix.language }}
 
   # -------------------------------------------------------------------
   # Scheduled/manual analysis: explicitly scans main and each release
@@ -207,11 +208,14 @@ jobs:
   # matrix so the scheduled path can be tested without waiting for the
   # next cron event.
   # -------------------------------------------------------------------
+    needs:
+    - alpha_bridge_inputs
   analyze-scheduled:
     if: >-
-      (github.event_name == 'schedule' ||
+      ${{ ((github.event_name == 'schedule' ||
        github.event_name == 'workflow_dispatch') &&
-      github.repository == 'open-mpi/ompi'
+      github.repository == 'open-mpi/ompi') && needs.alpha_bridge_inputs.outputs.changed
+      == 'true' }}
     name: Analyze ${{ matrix.language }} (${{ matrix.branch }})
     runs-on: ubuntu-latest
     strategy:
@@ -222,62 +226,63 @@ jobs:
         # these cannot be globs or regexes. New release branches must be
         # added here, too; the check-scheduled-coverage job enforces it.
         branch:
-          - main
-          - v5.0.x
-          - v6.0.x
+        - main
+        - v5.0.x
+        - v6.0.x
         language:
-          - actions
-          - c-cpp
-          - python
+        - actions
+        - c-cpp
+        - python
         include:
-          - language: actions
-            build-mode: none
-          - language: c-cpp
-            build-mode: manual
-          - language: python
-            build-mode: none
+        - language: actions
+          build-mode: none
+        - language: c-cpp
+          build-mode: manual
+        - language: python
+          build-mode: none
     steps:
-      - name: Checkout ${{ matrix.branch }}
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ matrix.branch }}
-          submodules: recursive
-          persist-credentials: false
+    - name: Checkout ${{ matrix.branch }}
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ matrix.branch }}
+        submodules: recursive
+        persist-credentials: false
 
-      - name: Resolve commit SHA
-        id: commit
-        shell: bash
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+    - name: Resolve commit SHA
+      id: commit
+      shell: bash
+      run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
-          config-file: >-
-            ${{ github.repository }}/.github/codeql/codeql-config.yml@${{ github.event.repository.default_branch }}
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v4
+      with:
+        languages: ${{ matrix.language }}
+        build-mode: ${{ matrix.build-mode }}
+        config-file: >-
+          ${{ github.repository }}/.github/codeql/codeql-config.yml@${{ github.event.repository.default_branch
+          }}
 
-      - name: Run manual build steps
-        if: matrix.build-mode == 'manual'
-        shell: bash
-        run: |
-          export AUTOMAKE_JOBS=$(nproc)
-          ./autogen.pl
-          ./configure
-          make -j $(nproc)
+    - name: Run manual build steps
+      if: matrix.build-mode == 'manual'
+      shell: bash
+      run: |
+        export AUTOMAKE_JOBS=$(nproc)
+        ./autogen.pl
+        ./configure
+        make -j $(nproc)
 
-      - name: Perform CodeQL Analysis
-        if: matrix.language != 'c-cpp'
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:${{ matrix.language }}"
+    - name: Perform CodeQL Analysis
+      if: matrix.language != 'c-cpp'
+      uses: github/codeql-action/analyze@v4
+      with:
+        category: /language:${{ matrix.language }}
           # Attribute results to the checked-out branch rather than to
           # main (which is what a schedule event would otherwise report
           # against).  The category is keyed on language only -- NOT on
           # branch -- so each branch's results update in place and the
           # weekly main scan stays consistent with its push/PR scans.
-          ref: refs/heads/${{ matrix.branch }}
-          sha: ${{ steps.commit.outputs.sha }}
+        ref: refs/heads/${{ matrix.branch }}
+        sha: ${{ steps.commit.outputs.sha }}
 
       # CodeQL's paths-ignore setting does not filter C/C++ code that is
       # compiled by a manual build.  Open MPI's normal build compiles
@@ -287,57 +292,57 @@ jobs:
       # locations are under 3rd-party/ or the test directories (mirroring
       # the config sidecar's paths-ignore), and then upload the filtered
       # SARIF.
-      - name: Perform CodeQL Analysis
-        if: matrix.language == 'c-cpp'
-        uses: github/codeql-action/analyze@v4
-        with:
-          category: "/language:${{ matrix.language }}"
-          output: c-cpp-sarif-results
-          upload: failure-only
+    - name: Perform CodeQL Analysis
+      if: matrix.language == 'c-cpp'
+      uses: github/codeql-action/analyze@v4
+      with:
+        category: /language:${{ matrix.language }}
+        output: c-cpp-sarif-results
+        upload: failure-only
           # Attribute results to the checked-out branch rather than to
           # main (which is what a schedule event would otherwise report
           # against).  The category is keyed on language only -- NOT on
           # branch -- so each branch's results update in place and the
           # weekly main scan stays consistent with its push/PR scans.
-          ref: refs/heads/${{ matrix.branch }}
-          sha: ${{ steps.commit.outputs.sha }}
+        ref: refs/heads/${{ matrix.branch }}
+        sha: ${{ steps.commit.outputs.sha }}
 
-      - name: Locate C/C++ SARIF
-        if: matrix.language == 'c-cpp'
-        id: cpp_sarif
-        shell: bash
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          sarif_files=(c-cpp-sarif-results/*.sarif)
-          if test ${#sarif_files[@]} -ne 1; then
-              echo "::error::Expected one C/C++ SARIF file, found ${#sarif_files[@]}"
-              exit 1
-          fi
-          echo "file=${sarif_files[0]}" >> "$GITHUB_OUTPUT"
+    - name: Locate C/C++ SARIF
+      if: matrix.language == 'c-cpp'
+      id: cpp_sarif
+      shell: bash
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        sarif_files=(c-cpp-sarif-results/*.sarif)
+        if test ${#sarif_files[@]} -ne 1; then
+            echo "::error::Expected one C/C++ SARIF file, found ${#sarif_files[@]}"
+            exit 1
+        fi
+        echo "file=${sarif_files[0]}" >> "$GITHUB_OUTPUT"
 
-      - name: Filter third-party C/C++ SARIF results
-        if: matrix.language == 'c-cpp'
-        uses: advanced-security/filter-sarif@v1
-        with:
-          patterns: |
-            -3rd-party/**
-            -**/3rd-party/**
-            -test/**
-            -**/test/**
-          input: ${{ steps.cpp_sarif.outputs.file }}
-          output: ${{ steps.cpp_sarif.outputs.file }}
+    - name: Filter third-party C/C++ SARIF results
+      if: matrix.language == 'c-cpp'
+      uses: advanced-security/filter-sarif@v1
+      with:
+        patterns: |
+          -3rd-party/**
+          -**/3rd-party/**
+          -test/**
+          -**/test/**
+        input: ${{ steps.cpp_sarif.outputs.file }}
+        output: ${{ steps.cpp_sarif.outputs.file }}
 
-      - name: Upload filtered C/C++ SARIF
-        if: matrix.language == 'c-cpp'
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: ${{ steps.cpp_sarif.outputs.file }}
-          category: "/language:${{ matrix.language }}"
+    - name: Upload filtered C/C++ SARIF
+      if: matrix.language == 'c-cpp'
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: ${{ steps.cpp_sarif.outputs.file }}
+        category: /language:${{ matrix.language }}
           # Match the scheduled analyze attribution above when uploading
           # the filtered SARIF.
-          ref: refs/heads/${{ matrix.branch }}
-          sha: ${{ steps.commit.outputs.sha }}
+        ref: refs/heads/${{ matrix.branch }}
+        sha: ${{ steps.commit.outputs.sha }}
 
   # -------------------------------------------------------------------
   # Guard: fail if a release branch that the push/pull_request globs
@@ -349,69 +354,144 @@ jobs:
   # (the schedule fires only from the default branch) and its copy can
   # lag main's, so running there would block CI for drift it can't fix.
   # -------------------------------------------------------------------
+    needs:
+    - alpha_bridge_inputs
   check-scheduled-coverage:
     if: >-
-      github.event_name == 'push' &&
-      github.ref_name == github.event.repository.default_branch &&
-      github.repository == 'open-mpi/ompi'
+      ${{ (github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+      && github.repository == 'open-mpi/ompi') && needs.alpha_bridge_inputs.outputs.changed
+      == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
+    - name: Checkout repository
+      uses: actions/checkout@v6
+      with:
+        persist-credentials: false
 
-      - name: Verify periodic-scan branch coverage
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
+    - name: Verify periodic-scan branch coverage
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
 
-          # The push/PR trigger globs in on.push.branches (above) are the
-          # single definition of which branches get scanned. This guard
-          # reads them from this file and converts each GitHub filter-glob
-          # to a regex (. -> \., * -> .*; +, ?, and [..] mean the same in
-          # both), so it matches exactly what the triggers match -- there
-          # is no second copy of the pattern to keep in sync. It then
-          # checks that every such branch is also listed in the
-          # analyze-scheduled matrix. python3 is always present on the
-          # runner, so (unlike yq) a runner image change cannot break it.
-          gh api --paginate "repos/${{ github.repository }}/branches" \
-            -q '.[].name' > "$RUNNER_TEMP/branches.txt"
+        # The push/PR trigger globs in on.push.branches (above) are the
+        # single definition of which branches get scanned. This guard
+        # reads them from this file and converts each GitHub filter-glob
+        # to a regex (. -> \., * -> .*; +, ?, and [..] mean the same in
+        # both), so it matches exactly what the triggers match -- there
+        # is no second copy of the pattern to keep in sync. It then
+        # checks that every such branch is also listed in the
+        # analyze-scheduled matrix. python3 is always present on the
+        # runner, so (unlike yq) a runner image change cannot break it.
+        gh api --paginate "repos/${{ github.repository }}/branches" \
+          -q '.[].name' > "$RUNNER_TEMP/branches.txt"
 
-          python3 - .github/workflows/codeql.yml "$RUNNER_TEMP/branches.txt" <<'PY'
-          import sys, re
+        python3 - .github/workflows/codeql.yml "$RUNNER_TEMP/branches.txt" <<'PY'
+        import sys, re
 
-          wf = open(sys.argv[1]).read()
-          branches = [b.strip() for b in open(sys.argv[2]) if b.strip()]
+        wf = open(sys.argv[1]).read()
+        branches = [b.strip() for b in open(sys.argv[2]) if b.strip()]
 
-          # on.push.branches globs -> anchored ERE regexes. Capture the
-          # whole push block (tolerates comments and the &scan_branches
-          # anchor on the branches: line) and pull out its list items.
-          push = re.search(r"(?ms)^  push:\n(.*?)^  \S", wf)
-          raw = re.findall(r"(?m)^      - (\S.*?) *(?:#.*)?$", push.group(1)) if push else []
-          globs = [x.strip().strip("'") for x in raw]
-          triggers = [re.compile("^" + g.replace(".", r"\.").replace("*", ".*") + "$")
-                      for g in globs]
-          if not triggers:
-              sys.exit("::error::could not parse on.push.branches; "
-                       "coverage guard cannot run")
+        # on.push.branches globs -> anchored ERE regexes. Capture the
+        # whole push block (tolerates comments and the &scan_branches
+        # anchor on the branches: line) and pull out its list items.
+        push = re.search(r"(?ms)^  push:\n(.*?)^  \S", wf)
+        raw = re.findall(r"(?m)^      - (\S.*?) *(?:#.*)?$", push.group(1)) if push else []
+        globs = [x.strip().strip("'") for x in raw]
+        triggers = [re.compile("^" + g.replace(".", r"\.").replace("*", ".*") + "$")
+                    for g in globs]
+        if not triggers:
+            sys.exit("::error::could not parse on.push.branches; "
+                     "coverage guard cannot run")
 
-          # analyze-scheduled matrix branch list.
-          sched = re.search(r"(?ms)^        branch:\n(.*?)^        \S", wf)
-          scheduled = set(re.findall(r"^          - (\S+)", sched.group(1), re.M)) if sched else set()
+        # analyze-scheduled matrix branch list.
+        sched = re.search(r"(?ms)^        branch:\n(.*?)^        \S", wf)
+        scheduled = set(re.findall(r"^          - (\S+)", sched.group(1), re.M)) if sched else set()
 
-          missing = [b for b in branches
-                     if any(rx.match(b) for rx in triggers) and b not in scheduled]
+        missing = [b for b in branches
+                   if any(rx.match(b) for rx in triggers) and b not in scheduled]
 
-          if missing:
-              print("::error::Branch(es) get push/PR CodeQL scans but are missing "
-                    "from the weekly scan list: " + " ".join(missing))
-              print("Add them to jobs.analyze-scheduled.strategy.matrix.branch "
-                    "in .github/workflows/codeql.yml.")
-              sys.exit(1)
-          print("OK: every push/PR-scanned branch is covered by the weekly scan.")
-          PY
+        if missing:
+            print("::error::Branch(es) get push/PR CodeQL scans but are missing "
+                  "from the weekly scan list: " + " ".join(missing))
+            print("Add them to jobs.analyze-scheduled.strategy.matrix.branch "
+                  "in .github/workflows/codeql.yml.")
+            sys.exit(1)
+        print("OK: every push/PR-scanned branch is covered by the weekly scan.")
+        PY
+    needs:
+    - alpha_bridge_inputs
+  alpha_bridge_inputs:
+    name: AlphaBridge input check
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    concurrency:
+      group: alpha-bridge-inputs-${{ github.workflow }}-${{ github.sha }}-${{ 
+        github.event.schedule || github.event_name }}
+      cancel-in-progress: false
+    outputs:
+      changed: ${{ steps.identity.outputs.changed }}
+    steps:
+    - id: identity
+      name: Check source, workflow, variables, and runner inputs
+      env:
+        GH_TOKEN: ${{ github.token }}
+        AB_REPOSITORY: ${{ github.repository }}
+        AB_RUN_ID: ${{ github.run_id }}
+        AB_HEAD_SHA: ${{ github.sha }}
+        AB_EVENT: ${{ github.event_name }}
+        AB_SCHEDULE: ${{ github.event.schedule || '' }}
+        AB_VARIABLES: ${{ toJSON(vars) }}
+        AB_INPUTS: ${{ toJSON(inputs) }}
+      shell: bash
+      run: "python3 - <<'ALPHA_BRIDGE_CI_PY'\n\"\"\"Native scheduled-CI input check,
+        embedded in the owned fork configuration.\"\"\"\n\nfrom __future__ import
+        annotations\n\nimport hashlib\nimport json\nimport os\nimport urllib.parse\n\
+        import urllib.request\n\n\ndef changed(get, *, repository, run_id, identity,
+        job_name):\n    current = get(f\"/repos/{repository}/actions/runs/{run_id}\"\
+        )\n    event = current[\"event\"]\n    query = urllib.parse.urlencode(\n \
+        \       {\n            \"head_sha\": current[\"head_sha\"],\n            \"\
+        event\": event,\n            \"per_page\": 100,\n        }\n    )\n    runs
+        = get(f\"/repos/{repository}/actions/workflows/{current['workflow_id']}/runs?{query}\"\
+        )\n    for run in runs[\"workflow_runs\"]:\n        if run[\"id\"] == run_id:\n\
+        \            continue\n        if run.get(\"head_sha\") != current[\"head_sha\"\
+        ] or run.get(\"event\") != event:\n            raise ValueError(\"provider
+        returned a different CI input identity\")\n        page = 1\n        while
+        True:\n            jobs = get(\n                f\"/repos/{repository}/actions/runs/{run['id']}/jobs?per_page=100&page={page}\"\
+        \n            )[\"jobs\"]\n            for job in jobs:\n                if
+        (\n                    job[\"name\"] == job_name\n                    and
+        job.get(\"status\") == \"completed\"\n                    and job.get(\"conclusion\"\
+        ) == \"success\"\n                    and any(\n                        step[\"\
+        name\"] == f\"AlphaBridge input identity {identity}\"\n                  \
+        \      and step.get(\"conclusion\") == \"success\"\n                     \
+        \   for step in job.get(\"steps\", [])\n                    )\n          \
+        \      ):\n                    return False\n            if len(jobs) < 100:\n\
+        \                break\n            page += 1\n    return True\n\n\ndef main():\n\
+        \    inputs = {\n        \"configuration_commit\": os.environ[\"AB_HEAD_SHA\"\
+        ],\n        \"event\": os.environ[\"AB_EVENT\"],\n        \"schedule\": os.environ[\"\
+        AB_SCHEDULE\"],\n        \"variables\": json.loads(os.environ[\"AB_VARIABLES\"\
+        ]),\n        \"inputs\": json.loads(os.environ[\"AB_INPUTS\"]),\n        \"\
+        runner_image\": [os.environ.get(\"ImageOS\", \"\"), os.environ.get(\"ImageVersion\"\
+        , \"\")],\n    }\n    identity = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()\n\
+        \n    def get(path):\n        request = urllib.request.Request(\n        \
+        \    \"https://api.github.com\" + path,\n            headers={\n         \
+        \       \"Authorization\": \"Bearer \" + os.environ[\"GH_TOKEN\"],\n     \
+        \           \"Accept\": \"application/vnd.github+json\",\n               \
+        \ \"X-GitHub-Api-Version\": \"2026-03-10\",\n            },\n        )\n \
+        \       with urllib.request.urlopen(request, timeout=60) as response:\n  \
+        \          return json.load(response)\n\n    should_run = inputs[\"event\"\
+        ] != \"schedule\" or changed(\n        get,\n        repository=os.environ[\"\
+        AB_REPOSITORY\"],\n        run_id=int(os.environ[\"AB_RUN_ID\"]),\n      \
+        \  identity=identity,\n        job_name=\"AlphaBridge input check\",\n   \
+        \ )\n    with open(os.environ[\"GITHUB_OUTPUT\"], \"a\", encoding=\"utf-8\"\
+        ) as output:\n        output.write(f\"digest={identity}\\nchanged={str(should_run).lower()}\\\
+        n\")\n    print(\"CI inputs changed\" if should_run else \"CI inputs unchanged;
+        build and test jobs skipped\")\n\n\nif __name__ == \"__main__\":\n    main()\n\
+        \nALPHA_BRIDGE_CI_PY\n"
+    - name: AlphaBridge input identity ${{ steps.identity.outputs.digest }}
+      run: echo 'Input identity recorded'
