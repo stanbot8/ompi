@@ -71,17 +71,16 @@ on:
   push:
     # Defined once here (&scan_branches) and reused by pull_request
     # below via a YAML alias, so the two trigger lists cannot drift.
-    branches:
+    branches: &scan_branches
     - main
-    - v[5-9].*.x
-    - v[1-9][0-9]+.*.x
+    - v[5-9].*.x           # Matches v5.0.x through v9.9.x
+    - v[1-9][0-9]+.*.x     # Matches v10.0.x and higher (double digits+)
   pull_request:
-    branches:
-    - main
-    - v[5-9].*.x
-    - v[1-9][0-9]+.*.x
-  schedule: -
-    cron: 32 5 * * 1
+    branches: *scan_branches
+  schedule:
+    # Monday morning (UTC).  The off-the-hour minute avoids GitHub's
+    # top-of-the-hour scheduling congestion.
+  - cron: 32 5 * * 1
   workflow_dispatch:
 
 permissions:
@@ -458,7 +457,7 @@ jobs:
         AB_RUN_ID: ${{ github.run_id }}
         AB_HEAD_SHA: 9bf19af46b93024cbe662aa63c5d9d53cb259672
         AB_WORKFLOW_DIGEST: 
-          6674d3baa757adcc19150f26a947436bc88f8347575fd767578e394e6af13424
+          bce768b31ed07238bc9b64e481fcc6f812fa25c0b0c9f9c94a901575fb2aa65c
         AB_EVENT: ${{ github.event_name }}
         AB_SCHEDULE: ${{ github.event.schedule || '' }}
         AB_VARIABLES: ${{ toJSON(vars) }}

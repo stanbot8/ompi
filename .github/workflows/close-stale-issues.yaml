@@ -30,8 +30,10 @@
 
 name: Close stale issues
 on:
-  schedule: -
-    cron: 0 1,5,9,13,17,21 * * *
+  schedule:
+    # Run it a few times a day so as not to necessarily mark stale /
+    # close a bunch of issues at once.
+  - cron: 0 1,5,9,13,17,21 * * *
 
 jobs:
   stale:
@@ -39,8 +41,9 @@ jobs:
     permissions:
       contents: read
       issues: write
-    steps: -
-      uses: actions/stale@v9
+    steps:
+      # https://github.com/marketplace/actions/close-stale-issues
+    - uses: actions/stale@v9
       with:
           # If there are no replies for 14 days, mark the issue as
           # "stale" (and emit a warning).
