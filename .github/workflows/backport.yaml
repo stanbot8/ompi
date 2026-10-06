@@ -425,7 +425,7 @@ jobs:
                       github.event_name == 'workflow_run') && 'refs/heads/main' 
                       || github.ref }}
                   AB_WORKFLOW_DIGEST: 
-                      9d148550fcceba24041c432639c68935ac7884a765c7714228ec048a6cef3f47
+                      6a5527852ab892a9798d9566b0ff0a59fe279cccd97c1d35d760eaa3f7b43f41
                   AB_EVENT: ${{ github.event_name }}
                   AB_SCHEDULE: ${{ github.event.schedule || '' }}
                   AB_VARIABLES: ${{ toJSON(vars) }}
@@ -438,7 +438,10 @@ jobs:
                   import os\nimport re\nimport urllib.parse\nimport urllib.request\n\
                   \nINPUT_CHECK_NAMES = (\"CI input check\", \"AlphaBridge input check\"\
                   )\nINPUT_IDENTITY_PREFIXES = (\"CI input identity \", \"AlphaBridge
-                  input identity \")\n\n\ndef input_identity(job):\n    for step in
+                  input identity \")\n\n\ndef is_input_check(job):\n    \"\"\"GitHub
+                  prefixes callable job names with each caller's display name.\"\"\
+                  \"\n    return job.get(\"name\", \"\").rsplit(\" / \", 1)[-1] in
+                  INPUT_CHECK_NAMES\n\n\ndef input_identity(job):\n    for step in
                   job.get(\"steps\", []):\n        if step.get(\"conclusion\") !=
                   \"success\":\n            continue\n        name = step.get(\"name\"\
                   , \"\")\n        for prefix in INPUT_IDENTITY_PREFIXES:\n      \
@@ -470,17 +473,16 @@ jobs:
                   True:\n        values = get(\n            f\"/repos/{repository}/actions/runs/{parent['id']}/jobs?per_page=100&page={page}\"\
                   \n        )[\"jobs\"]\n        jobs.extend(values)\n        if len(values)
                   < 100:\n            break\n        page += 1\n    guards = [\n \
-                  \       job\n        for job in jobs\n        if job.get(\"name\"\
-                  ) in INPUT_CHECK_NAMES\n        and job.get(\"conclusion\") == \"\
-                  success\"\n        and input_identity(job)\n    ]\n    return not
-                  guards or any(\n        job not in guards and job.get(\"conclusion\"\
-                  ) != \"skipped\" for job in jobs\n    )\n\n\ndef changed(get, *,
-                  repository, run_id, identity, job_name):\n    current = get(f\"\
-                  /repos/{repository}/actions/runs/{run_id}\")\n    event = current[\"\
-                  event\"]\n    page = 1\n    while True:\n        # Filter locally:
-                  GitHub caps filtered searches at 1,000 results.\n        query =
-                  urllib.parse.urlencode({\"per_page\": 100, \"page\": page})\n  \
-                  \      runs = get(f\"/repos/{repository}/actions/workflows/{current['workflow_id']}/runs?{query}\"\
+                  \       job\n        for job in jobs\n        if is_input_check(job)
+                  and job.get(\"conclusion\") == \"success\" and input_identity(job)\n\
+                  \    ]\n    return not guards or any(\n        job not in guards
+                  and job.get(\"conclusion\") != \"skipped\" for job in jobs\n   \
+                  \ )\n\n\ndef changed(get, *, repository, run_id, identity, job_name):\n\
+                  \    current = get(f\"/repos/{repository}/actions/runs/{run_id}\"\
+                  )\n    event = current[\"event\"]\n    page = 1\n    while True:\n\
+                  \        # Filter locally: GitHub caps filtered searches at 1,000
+                  results.\n        query = urllib.parse.urlencode({\"per_page\":
+                  100, \"page\": page})\n        runs = get(f\"/repos/{repository}/actions/workflows/{current['workflow_id']}/runs?{query}\"\
                   )\n        for run in runs[\"workflow_runs\"]:\n            if run[\"\
                   id\"] == run_id:\n                continue\n            if run.get(\"\
                   head_branch\") != current[\"head_branch\"] or run.get(\"event\"\
@@ -489,15 +491,15 @@ jobs:
                   \            f\"/repos/{repository}/actions/runs/{run['id']}/jobs?per_page=100&page={job_page}\"\
                   \n                )[\"jobs\"]\n                for job in jobs:\n\
                   \                    if (\n                        (\n         \
-                  \                   job[\"name\"] in INPUT_CHECK_NAMES\n       \
-                  \                     if job_name in INPUT_CHECK_NAMES\n       \
-                  \                     else job[\"name\"] == job_name\n         \
-                  \               )\n                        and job.get(\"status\"\
-                  ) == \"completed\"\n                        and job.get(\"conclusion\"\
-                  ) == \"success\"\n                        and input_identity(job)
-                  == identity\n                    ):\n                        return
-                  False\n                if len(jobs) < 100:\n                   \
-                  \ break\n                job_page += 1\n        if len(runs[\"workflow_runs\"\
+                  \                   is_input_check(job)\n                      \
+                  \      if job_name in INPUT_CHECK_NAMES\n                      \
+                  \      else job[\"name\"] == job_name\n                        )\n\
+                  \                        and job.get(\"status\") == \"completed\"\
+                  \n                        and job.get(\"conclusion\") == \"success\"\
+                  \n                        and input_identity(job) == identity\n\
+                  \                    ):\n                        return False\n\
+                  \                if len(jobs) < 100:\n                    break\n\
+                  \                job_page += 1\n        if len(runs[\"workflow_runs\"\
                   ]) < 100:\n            return True\n        page += 1\n\n\ndef main():\n\
                   \    event = os.environ[\"AB_EVENT\"]\n    event_payload = None\n\
                   \    if event not in {\"schedule\", \"workflow_run\"}:\n       \
