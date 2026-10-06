@@ -39,7 +39,7 @@ jobs:
         submodules: recursive
 
         ref: ${{ (github.event_name == 'schedule' || github.event_name == 
-          'workflow_run') && '7dead937f0b9ca60ee1b34bc80f84a6ac623d300' || 
+          'workflow_run') && 'd28dc7ca7813cd9340c728d23181ad364fe57de1' || 
           github.sha }}
     - name: Bootstrap Open MPI
       run: |-
@@ -179,12 +179,12 @@ jobs:
         AB_REPOSITORY: ${{ github.repository }}
         AB_RUN_ID: ${{ github.run_id }}
         AB_HEAD_SHA: ${{ (github.event_name == 'schedule' || github.event_name 
-          == 'workflow_run') && '7dead937f0b9ca60ee1b34bc80f84a6ac623d300' || 
+          == 'workflow_run') && 'd28dc7ca7813cd9340c728d23181ad364fe57de1' || 
           github.sha }}
         AB_REF: ${{ (github.event_name == 'schedule' || github.event_name == 
           'workflow_run') && 'refs/heads/main' || github.ref }}
         AB_WORKFLOW_DIGEST: 
-          a0693249d90ff5db28f79ccce9fe07f43fa7a055fe1694d698724423b567faa5
+          fb3206d3aaedbb94c5380bc8c7a64ecb7166fb1ac67a02dbeb79459b48905cf0
         AB_EVENT: ${{ github.event_name }}
         AB_SCHEDULE: ${{ github.event.schedule || '' }}
         AB_VARIABLES: ${{ toJSON(vars) }}

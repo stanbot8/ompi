@@ -27,7 +27,7 @@ jobs:
       with:
         submodules: recursive
         ref: ${{ (github.event_name == 'schedule' || github.event_name == 
-          'workflow_run') && '7dead937f0b9ca60ee1b34bc80f84a6ac623d300' || 
+          'workflow_run') && 'd28dc7ca7813cd9340c728d23181ad364fe57de1' || 
           github.sha }}
     - name: Build Open MPI (VPATH)
       run: |
@@ -62,12 +62,12 @@ jobs:
         AB_REPOSITORY: ${{ github.repository }}
         AB_RUN_ID: ${{ github.run_id }}
         AB_HEAD_SHA: ${{ (github.event_name == 'schedule' || github.event_name 
-          == 'workflow_run') && '7dead937f0b9ca60ee1b34bc80f84a6ac623d300' || 
+          == 'workflow_run') && 'd28dc7ca7813cd9340c728d23181ad364fe57de1' || 
           github.sha }}
         AB_REF: ${{ (github.event_name == 'schedule' || github.event_name == 
           'workflow_run') && 'refs/heads/main' || github.ref }}
         AB_WORKFLOW_DIGEST: 
-          2b06a96f9d0cf3f296eaa55399e892743962691fed48911803319c4441894f9a
+          1721c283756e4b324b4d3caa411a8fc1247ac33dfe91b39d9edb239b66a5fe4e
         AB_EVENT: ${{ github.event_name }}
         AB_SCHEDULE: ${{ github.event.schedule || '' }}
         AB_VARIABLES: ${{ toJSON(vars) }}

@@ -132,7 +132,7 @@ jobs:
           persist-credentials: false
 
           ref: ${{ (github.event_name == 'schedule' || github.event_name == 
-            'workflow_run') && '7dead937f0b9ca60ee1b34bc80f84a6ac623d300' || 
+            'workflow_run') && 'd28dc7ca7813cd9340c728d23181ad364fe57de1' || 
             github.sha }}
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -373,7 +373,7 @@ jobs:
           persist-credentials: false
 
           ref: ${{ (github.event_name == 'schedule' || github.event_name == 
-            'workflow_run') && '7dead937f0b9ca60ee1b34bc80f84a6ac623d300' || 
+            'workflow_run') && 'd28dc7ca7813cd9340c728d23181ad364fe57de1' || 
             github.sha }}
       - name: Verify periodic-scan branch coverage
         shell: bash
@@ -450,12 +450,12 @@ jobs:
           AB_REPOSITORY: ${{ github.repository }}
           AB_RUN_ID: ${{ github.run_id }}
           AB_HEAD_SHA: ${{ (github.event_name == 'schedule' || github.event_name
-            == 'workflow_run') && '7dead937f0b9ca60ee1b34bc80f84a6ac623d300' || 
+            == 'workflow_run') && 'd28dc7ca7813cd9340c728d23181ad364fe57de1' || 
             github.sha }}
           AB_REF: ${{ (github.event_name == 'schedule' || github.event_name == 
             'workflow_run') && 'refs/heads/main' || github.ref }}
           AB_WORKFLOW_DIGEST: 
-            5a6916070302f8327aad838dbc224b5d88300a8fce2bc93f1d3457739e493ef4
+            4e5ad2790bcc7ce0ee53f10730ad1c9535954eb28baea09bafd6f95b8e2013b2
           AB_EVENT: ${{ github.event_name }}
           AB_SCHEDULE: ${{ github.event.schedule || '' }}
           AB_VARIABLES: ${{ toJSON(vars) }}
