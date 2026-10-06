@@ -425,11 +425,12 @@ jobs:
                       github.event_name == 'workflow_run') && 'refs/heads/main' 
                       || github.ref }}
                   AB_WORKFLOW_DIGEST: 
-                      6a5527852ab892a9798d9566b0ff0a59fe279cccd97c1d35d760eaa3f7b43f41
+                      90fd5835c31f2c01b896d7077361601e1088949d9c2ceebe7c754088eb408969
                   AB_EVENT: ${{ github.event_name }}
                   AB_SCHEDULE: ${{ github.event.schedule || '' }}
                   AB_VARIABLES: ${{ toJSON(vars) }}
                   AB_INPUTS: ${{ toJSON(inputs) }}
+                  AB_DEFAULT_PERMISSIONS: read
                   AB_WORKFLOW_RUN: ${{ toJSON(github.event.workflow_run) }}
               shell: bash
               run: "python3 - <<'ALPHA_BRIDGE_CI_PY'\n\"\"\"Native automatic-CI input
@@ -512,15 +513,17 @@ jobs:
                   \        \"schedule\": os.environ[\"AB_SCHEDULE\"],\n        \"\
                   variables\": json.loads(os.environ[\"AB_VARIABLES\"]),\n       \
                   \ \"inputs\": json.loads(os.environ[\"AB_INPUTS\"]),\n        \"\
-                  runner_image\": [os.environ.get(\"ImageOS\", \"\"), os.environ.get(\"\
-                  ImageVersion\", \"\")],\n        \"producer\": json.loads(os.environ.get(\"\
-                  AB_WORKFLOW_RUN\", \"null\")),\n    }\n    identity = hashlib.sha256(json.dumps(inputs,
-                  sort_keys=True).encode()).hexdigest()\n\n    def get(path):\n  \
-                  \      request = urllib.request.Request(\n            \"https://api.github.com\"\
-                  \ + path,\n            headers={\n                \"Authorization\"\
-                  : \"Bearer \" + os.environ[\"GH_TOKEN\"],\n                \"Accept\"\
-                  : \"application/vnd.github+json\",\n                \"X-GitHub-Api-Version\"\
-                  : \"2026-03-10\",\n            },\n        )\n        with urllib.request.urlopen(request,
+                  default_workflow_permissions\": os.environ[\"AB_DEFAULT_PERMISSIONS\"\
+                  ],\n        \"runner_image\": [os.environ.get(\"ImageOS\", \"\"\
+                  ), os.environ.get(\"ImageVersion\", \"\")],\n        \"producer\"\
+                  : json.loads(os.environ.get(\"AB_WORKFLOW_RUN\", \"null\")),\n \
+                  \   }\n    identity = hashlib.sha256(json.dumps(inputs, sort_keys=True).encode()).hexdigest()\n\
+                  \n    def get(path):\n        request = urllib.request.Request(\n\
+                  \            \"https://api.github.com\" + path,\n            headers={\n\
+                  \                \"Authorization\": \"Bearer \" + os.environ[\"\
+                  GH_TOKEN\"],\n                \"Accept\": \"application/vnd.github+json\"\
+                  ,\n                \"X-GitHub-Api-Version\": \"2026-03-10\",\n \
+                  \           },\n        )\n        with urllib.request.urlopen(request,
                   timeout=60) as response:\n            return json.load(response)\n\
                   \n    manual = event == \"workflow_dispatch\" or int(os.environ[\"\
                   GITHUB_RUN_ATTEMPT\"]) > 1\n    should_run = manual or (\n     \
